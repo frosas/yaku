@@ -3,6 +3,8 @@
 If you want to learn how Promise works, read the minimum implementation [docs/minPromiseA+.coffee][]. Without comments, it has only about 100 lines of code.
 It only implements the `constructor` and `then`. It passed all the tests of [promises-aplus-tests][].
 
+I am not a optimization freak, I try to keep the source code readable and maintainable.
+
 ## Features
 
 - The minified file is only 3KB (`bluebird` / 73KB, `es6-promise` / 18KB)
