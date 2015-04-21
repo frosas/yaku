@@ -1,9 +1,7 @@
 ###
 
-As a result create funtions at runtime is very expensive.
-
-foo: 269ms
-bar: 7ms
+closure: 46ms
+nonClosure: 21ms
 
 ###
 
@@ -19,7 +17,7 @@ closure = ->
 		list[len++] = fn
 
 	process.on 'exit', ->
-		console.timeEnd()
+		console.timeEnd('closure')
 
 	foo = ->
 		a = 1
@@ -35,7 +33,7 @@ closure = ->
 		for fn in list
 			fn()
 
-	console.time()
+	console.time('closure')
 	i = countDown
 	while i--
 		foo()
@@ -52,7 +50,7 @@ nonClosure = ->
 		list[len++] = b
 
 	process.on 'exit', ->
-		console.timeEnd()
+		console.timeEnd('nonClosure')
 
 	bar = (a, b) ->
 		a + b
@@ -71,9 +69,10 @@ nonClosure = ->
 		while i < len
 			list[i++] list[i++], list[i++]
 
-	console.time()
+	console.time('nonClosure')
 	c = countDown
 	while c--
 		foo()
 
-nonClosure()
+closure()
+# nonClosure()
