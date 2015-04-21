@@ -1,6 +1,6 @@
 ###
 
-As a result create funtions at runtime is very expensive.
+As a result execute closure at runtime is very expensive.
 
 foo: 269ms
 bar: 7ms
@@ -13,6 +13,15 @@ foo = ->
 	do ->
 		1 + 2
 		return
+
+	return
+
+foo_ = ->
+	s = ->
+		1 + 2
+		return
+
+	1 + 2
 
 	return
 
@@ -29,4 +38,5 @@ test = (name, fn) ->
 
 
 test 'foo', foo
+test 'foo_', foo_
 test 'bar', bar
