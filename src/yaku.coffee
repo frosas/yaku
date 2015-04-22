@@ -182,10 +182,9 @@ do -> class Yaku
 	flush = ->
 		i = 0
 		while i < fnQueueLen
-			fnQueue[i]()
-			fnQueue[i++] = undefined
+			fnQueue[i++]()
 
-		fnQueueLen = 0
+		fnQueueLen = fnQueue.length = 0
 
 		return
 
