@@ -1,7 +1,9 @@
 # Overview
 
 If you want to learn how Promise works, read the minimum implementation [docs/minPromiseA+.coffee][]. Without comments, it has only about 100 lines of code.
-It only implements the `constructor` and `then`. It passed all the tests of [promises-aplus-tests][].
+It only implements the `constructor` and `then`. It passed all the tests of [promises-aplus-tests][]. After my research of some famous Promise libraries,
+only Yaku and Bluebird passed all the test. The `q` and `es6-promise` cannot
+fulfil all the specs.
 
 I am not a optimization freak, I try to keep the source code readable and maintainable.
 
