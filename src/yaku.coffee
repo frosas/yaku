@@ -172,7 +172,7 @@ do -> class Yaku
 	 * here, so that they can be execute on the next tick.
 	 * @private
 	###
-	fnQueue = []
+	fnQueue = Array 1000
 	fnQueueLen = 0
 
 	###*
@@ -182,9 +182,10 @@ do -> class Yaku
 	flush = ->
 		i = 0
 		while i < fnQueueLen
-			fnQueue[i++] fnQueue[i++], fnQueue[i++]
+			fnQueue[i]()
+			fnQueue[i++] = undefined
 
-		fnQueueLen = fnQueue.length = 0
+		fnQueueLen = 0
 
 		return
 
@@ -192,15 +193,11 @@ do -> class Yaku
 	 * Schedule a function. The function will run on the next tick.
 	 * @private
 	 * @param  {Function} fn
-	 * @param {Yaku} p
-	 * @param {Any} v
 	###
-	scheduleFn = (fn, p, v) ->
+	scheduleFn = (fn) ->
 		fnQueue[fnQueueLen++] = fn
-		fnQueue[fnQueueLen++] = p
-		fnQueue[fnQueueLen++] = v
 
-		scheduleFlush() if fnQueueLen == 3
+		scheduleFlush() if fnQueueLen == 1
 
 		return
 
@@ -280,7 +277,7 @@ do -> class Yaku
 
 				# To prevent the resolving circular we have to
 				# make this action on the next tick.
-				scheduleFn rejectPromise, p, r
+				scheduleFn -> resolvePromise p, $rejected, r
 		catch e
 			resolvePromise p, $rejected, e if not isResolved
 
@@ -316,27 +313,6 @@ do -> class Yaku
 			return $tryErr
 
 	###*
-	 * Resolve the value returned by onFulfilled or onRejected.
-	 * @param  {Yaku} self
-	 * @param  {Integer} offset
-	###
-	resolveX = (self, offset) ->
-		p = self[offset + 2]
-		x = getX self, p, self[offset + self._state]
-		return if x == $tryErr
-
-		# Prevent circular chain.
-		if x == p and x
-			rejector = x[offset + 1]
-			if rejector
-				rejector new TypeError $circularError
-			return
-
-		resolveValue p, x
-
-		return
-
-	###*
 	 * Decide how handlers works.
 	 * @private
 	 * @param  {Yaku} self
@@ -346,21 +322,24 @@ do -> class Yaku
 		# Trick: Reuse the value of state as the handler selector.
 		# The "i + state" shows the math nature of promise.
 		handler = self[offset + self._state]
+		p = self[offset + 2]
 
 		if handler
-			scheduleFn resolveX, self, offset
+			scheduleFn ->
+				x = getX self, p, handler
+				return if x == $tryErr
+
+				# Prevent circular chain.
+				if x == p and x
+					rejector = x[offset + 1]
+					if rejector
+						rejector new TypeError $circularError
+					return
+
+				resolveValue p, x
 		else
-			resolvePromise self[offset + 2], self._state, self._value
+			resolvePromise p, self._state, self._value
 
-		return
-
-	###*
-	 * Reject a promise with passed reason.
-	 * @param  {Yaku} p
-	 * @param  {Any} r
-	###
-	rejectPromise = (p, r) ->
-		resolvePromise p, $rejected, r
 		return
 
 	###*
