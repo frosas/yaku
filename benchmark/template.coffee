@@ -3,7 +3,7 @@ cs = kit.require 'colors/safe'
 
 ###*
  * The test will run 10 ^ 5 promises.
- * Each promise will resolve immediately.
+ * Each promise will resolve after 1ms.
  * When all tasks are done, print out how much time it takes.
 ###
 
@@ -39,7 +39,7 @@ module.exports = (name, Promise) ->
 		, 1
 
 	asyncTask = ->
-		new Promise(resolver0).then checkEnd
+		new Promise(resolver1).then checkEnd
 
 	i = countDown
 
