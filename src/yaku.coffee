@@ -168,6 +168,10 @@ do -> class Yaku
 	###
 	_hCount: 0
 
+	###*
+	 * Wrap a function into a try-catch.
+	 * @return {Any | $tryErr}
+	###
 	tryCatcher = ->
 		try
 			$tryCatchFn.apply @, arguments
@@ -175,6 +179,11 @@ do -> class Yaku
 			$tryErr.e = e
 			$tryErr
 
+	###*
+	 * Generate a try-catch wrapped function.
+	 * @param  {Function} fn
+	 * @return {Function}
+	###
 	genTryCatcher = (fn) ->
 		$tryCatchFn = fn
 		tryCatcher
