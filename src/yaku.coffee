@@ -169,6 +169,15 @@ do -> class Yaku
 	_hCount: 0
 
 	###*
+	 * Release the specified key of an object.
+	 * @param  {Object} obj
+	 * @param  {String | Number} key
+	###
+	release = (obj, key) ->
+		obj[key] = undefined
+		return
+
+	###*
 	 * Wrap a function into a try-catch.
 	 * @return {Any | $tryErr}
 	###
@@ -203,9 +212,21 @@ do -> class Yaku
 	flush = ->
 		i = 0
 		while i < fnQueueLen
-			fnQueue[i++] fnQueue[i++], fnQueue[i++]
+			fIndex = i++
+			pIndex = i++
+			vIndex = i++
 
-		fnQueueLen = fnQueue.length = 0
+			f = fnQueue[fIndex]
+			p = fnQueue[pIndex]
+			v = fnQueue[vIndex]
+
+			release fnQueue, fIndex
+			release fnQueue, pIndex
+			release fnQueue, vIndex
+
+			f p, v
+
+		fnQueueLen = 0
 
 		return
 
@@ -320,10 +341,13 @@ do -> class Yaku
 	 * Try to get return value of `onFulfilled` or `onRejected`.
 	 * @private
 	 * @param  {Yaku} self
-	 * @param  {Function} handler
+	 * @param  {Integer} hIndex
 	 * @return {Any}
 	###
-	getX = (self, handler) -> handler self._value
+	getX = (self, hIndex) ->
+		handler = self[hIndex]
+		release self, hIndex
+		handler self._value
 
 	###*
 	 * Resolve the value returned by onFulfilled or onRejected.
@@ -331,8 +355,11 @@ do -> class Yaku
 	 * @param  {Integer} offset
 	###
 	resolveX = (self, offset) ->
-		p = self[offset + 2]
-		x = genTryCatcher(getX) self, self[offset + self._state]
+		pIndex = offset + 2
+		p = self[pIndex]
+		release self, pIndex
+
+		x = genTryCatcher(getX) self, offset + self._state
 		if x == $tryErr
 			resolvePromise p, $rejected, x.e
 			return
@@ -360,7 +387,9 @@ do -> class Yaku
 		if self[offset + self._state]
 			scheduleFn resolveX, self, offset
 		else
-			resolvePromise self[offset + 2], self._state, self._value
+			pIndex = offset + 2
+			resolvePromise self[pIndex], self._state, self._value
+			release self, pIndex
 
 		return
 
