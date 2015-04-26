@@ -416,8 +416,9 @@ do -> class Yaku
 		self._value = value
 
 		offset = 0
+		len = self._hCount
 
-		while offset < self._hCount
+		while offset < len
 			resolveHanlers self, offset
 
 			offset += $groupNum
