@@ -151,7 +151,8 @@ do -> class Yaku
 
 	# These are some symbols. They won't be used to store data.
 	$circularError = 'circular promise resolution chain'
-	$tryErr = {}
+	$tryCatchFn = null
+	$tryErr = { e: null }
 	$noop = {}
 	$function = 'function'
 	$object = 'object'
@@ -166,6 +167,17 @@ do -> class Yaku
 	 * @private
 	###
 	_hCount: 0
+
+	tryCatcher = ->
+		try
+			$tryCatchFn.apply undefined, arguments
+		catch e
+			$tryErr.e = e
+			$tryErr
+
+	genTryCatcher = (fn) ->
+		$tryCatchFn = fn
+		tryCatcher
 
 	###*
 	 * All onFulfilled and onRejected functions will be scheduled in
@@ -243,8 +255,10 @@ do -> class Yaku
 	resolveValue = (p, x) ->
 		type = typeof x
 		if x != null and (type == $function or type == $object)
-			xthen = getXthen p, x
-			return if xthen == $tryErr
+			xthen = genTryCatcher(getXthen) x
+			if xthen == $tryErr
+				resolvePromise p, $rejected, xthen.e
+				return
 
 			if typeof xthen == $function
 				resolveXthen p, x, xthen
@@ -285,31 +299,19 @@ do -> class Yaku
 	###*
 	 * Try to get a promise's then method.
 	 * @private
-	 * @param  {Yaku} p
 	 * @param  {Thenable} x
-	 * @return {Function | $tryErr}
+	 * @return {Function}
 	###
-	getXthen = (p, x) ->
-		try
-			x.then
-		catch e
-			resolvePromise p, $rejected, e
-			return $tryErr
+	getXthen = (x) -> x.then
 
 	###*
 	 * Try to get return value of `onFulfilled` or `onRejected`.
 	 * @private
 	 * @param  {Yaku} self
-	 * @param  {Yaku} p
 	 * @param  {Function} handler
-	 * @return {Any | $tryErr}
+	 * @return {Any}
 	###
-	getX = (self, p, handler) ->
-		try
-			handler self._value
-		catch e
-			resolvePromise p, $rejected, e
-			return $tryErr
+	getX = (self, handler) -> handler self._value
 
 	###*
 	 * Decide how handlers works.
@@ -325,8 +327,10 @@ do -> class Yaku
 
 		if handler
 			scheduleFn ->
-				x = getX self, p, handler
-				return if x == $tryErr
+				x = genTryCatcher(getX) self, handler
+				if x == $tryErr
+					resolvePromise p, $rejected, x.e
+					return
 
 				# Prevent circular chain.
 				if x == p and x
