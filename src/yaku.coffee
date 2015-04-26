@@ -170,7 +170,7 @@ do -> class Yaku
 
 	tryCatcher = ->
 		try
-			$tryCatchFn.apply undefined, arguments
+			$tryCatchFn.apply @, arguments
 		catch e
 			$tryErr.e = e
 			$tryErr
@@ -277,22 +277,21 @@ do -> class Yaku
 	 * @param  {Function} xthen
 	###
 	resolveXthen = (p, x, xthen) ->
-		isResolved = false
+		err = genTryCatcher(xthen).call x, (y) ->
+			return if not x
+			x = null
+			resolveValue p, y
+		, (r) ->
+			return if not x
+			x = null
 
-		try
-			xthen.call x, (y) ->
-				return if isResolved
-				isResolved = true
-				resolveValue p, y
-			, (r) ->
-				return if isResolved
-				isResolved = true
+			# To prevent the resolving circular we have to
+			# make this action on the next tick.
+			scheduleFn -> resolvePromise p, $rejected, r
 
-				# To prevent the resolving circular we have to
-				# make this action on the next tick.
-				scheduleFn -> resolvePromise p, $rejected, r
-		catch e
-			resolvePromise p, $rejected, e if not isResolved
+		if err == $tryErr and x
+			resolvePromise p, $rejected, err.e
+			x = null
 
 		return
 
