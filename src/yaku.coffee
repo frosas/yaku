@@ -23,18 +23,7 @@ do -> class Yaku
 	 * the current Promise.
 	###
 	then: (onFulfilled, onRejected) ->
-		p = new Yaku $noop
-
-		offset = @_hCount
-		@[offset] = onFulfilled if typeof onFulfilled == $function
-		@[offset + 1] = onRejected if typeof onRejected == $function
-		@[offset + 2] = p
-		@_hCount += $groupNum
-
-		if @_state != $pending
-			settleHandler @, offset
-
-		p
+		addHandler @, (new Yaku $noop), onFulfilled, onRejected
 
 	###*
 	 * The catch() method returns a Promise and deals with rejected cases only.
@@ -338,6 +327,18 @@ do -> class Yaku
 	 * @return {Function}
 	###
 	getThen = (x) -> x.then
+
+	addHandler = (self, p, onFulfilled, onRejected) ->
+		offset = self._hCount
+		self[offset] = onFulfilled if typeof onFulfilled == $function
+		self[offset + 1] = onRejected if typeof onRejected == $function
+		self[offset + 2] = p
+		self._hCount += $groupNum
+
+		if self._state != $pending
+			settleHandler self, offset
+
+		p
 
 	###*
 	 * Try to get return value of `onFulfilled` or `onRejected`.
