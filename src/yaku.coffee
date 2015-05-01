@@ -270,6 +270,7 @@ do -> class Yaku
 				fn p, v
 
 			fnQueueLen = 0
+			fnQueue.length = initQueueSize
 
 			return
 
