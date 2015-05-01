@@ -32,7 +32,7 @@ do -> class Yaku
 		@_hCount += $groupNum
 
 		if @_state != $pending
-			resolveHanlers @, offset
+			settleHandler @, offset
 
 		p
 
@@ -55,7 +55,7 @@ do -> class Yaku
 	 * @return {Yaku}
 	###
 	@resolve: (value) ->
-		resolvePromise new Yaku($noop), $resolved, value
+		settlePromise new Yaku($noop), $resolved, value
 
 	###*
 	 * The Promise.reject(reason) method returns a Promise object that is rejected with the given reason.
@@ -63,7 +63,7 @@ do -> class Yaku
 	 * @return {Yaku}
 	###
 	@reject: (reason) ->
-		resolvePromise new Yaku($noop), $rejected, reason
+		settlePromise new Yaku($noop), $rejected, reason
 
 	###*
 	 * The Promise.race(iterable) method returns a promise that resolves or rejects
@@ -291,15 +291,15 @@ do -> class Yaku
 		if x != null and (type == $function or type == $object)
 			xthen = genTryCatcher(getXthen) x
 			if xthen == $tryErr
-				resolvePromise p, $rejected, xthen.e
+				settlePromise p, $rejected, xthen.e
 				return
 
 			if typeof xthen == $function
 				resolveXthen p, x, xthen
 			else
-				resolvePromise p, $resolved, x
+				settlePromise p, $resolved, x
 		else
-			resolvePromise p, $resolved, x
+			settlePromise p, $resolved, x
 
 		return
 
@@ -324,7 +324,7 @@ do -> class Yaku
 			scheduleFn rejectPromise, p, r
 
 		if err == $tryErr and x
-			resolvePromise p, $rejected, err.e
+			settlePromise p, $rejected, err.e
 			x = null
 
 		return
@@ -361,7 +361,7 @@ do -> class Yaku
 
 		x = genTryCatcher(getX) self, offset + self._state
 		if x == $tryErr
-			resolvePromise p, $rejected, x.e
+			settlePromise p, $rejected, x.e
 			return
 
 		# Prevent circular chain.
@@ -381,14 +381,14 @@ do -> class Yaku
 	 * @param  {Yaku} self
 	 * @param  {Integer} offset The offset of the handler group.
 	###
-	resolveHanlers = (self, offset) ->
+	settleHandler = (self, offset) ->
 		# Trick: Reuse the value of state as the handler selector.
 		# The "i + state" shows the math nature of promise.
 		if self[offset + self._state]
 			scheduleFn resolveX, self, offset
 		else
 			pIndex = offset + 2
-			resolvePromise self[pIndex], self._state, self._value
+			settlePromise self[pIndex], self._state, self._value
 			release self, pIndex
 
 		return
@@ -399,7 +399,7 @@ do -> class Yaku
 	 * @param  {Any} r
 	###
 	rejectPromise = (p, r) ->
-		resolvePromise p, $rejected, r
+		settlePromise p, $rejected, r
 		return
 
 	###*
@@ -409,9 +409,7 @@ do -> class Yaku
 	 * @param  {Any} value
 	 * @return {Yaku} It will simply return the `self`.
 	###
-	resolvePromise = (self, state, value) ->
-		return if self._state != $pending
-
+	settlePromise = (self, state, value) ->
 		self._state = state
 		self._value = value
 
@@ -419,14 +417,14 @@ do -> class Yaku
 		len = self._hCount
 
 		while offset < len
-			resolveHanlers self, offset
+			settleHandler self, offset
 
 			offset += $groupNum
 
 		self
 
 	###*
-	 * It will produce a resolvePromise function to user.
+	 * It will produce a settlePromise function to user.
 	 * Such as the resolve and reject in this `new Yaku (resolve, reject) ->`.
 	 * @private
 	 * @param  {Yaku} self
@@ -434,7 +432,9 @@ do -> class Yaku
 	 * @return {Function} `(value) -> undefined` A resolve or reject function.
 	###
 	genResolver = (self, state) -> (value) ->
-		resolvePromise self, state, value
+		return if self._state != $pending
+
+		settlePromise self, state, value
 
 	# CMD & AMD Support
 	if typeof module == $object and typeof module.exports == $object
