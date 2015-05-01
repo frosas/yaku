@@ -198,87 +198,88 @@ do -> class Yaku
 		tryCatcher
 
 	###*
-	 * All onFulfilled and onRejected functions will be scheduled in
-	 * here, so that they can be execute on the next tick.
+	 * Generate a scheduler.
 	 * @private
+	 * @param  {Integer}  initQueueSize
+	 * @param  {Function} fn `(Yaku, Value) ->` The schedule handler.
+	 * @return {Function} `(Yaku, Value) ->` The scheduler.
 	###
-	fnQueue = Array 1000
-	fnQueueLen = 0
-
-	###*
-	 * Run all queued functions.
-	 * @private
-	###
-	flush = ->
-		i = 0
-		while i < fnQueueLen
-			fIndex = i++
-			pIndex = i++
-			vIndex = i++
-
-			f = fnQueue[fIndex]
-			p = fnQueue[pIndex]
-			v = fnQueue[vIndex]
-
-			release fnQueue, fIndex
-			release fnQueue, pIndex
-			release fnQueue, vIndex
-
-			f p, v
-
+	genScheduler = (initQueueSize, fn) ->
+		###*
+		 * All async promise will be scheduled in
+		 * here, so that they can be execute on the next tick.
+		 * @private
+		###
+		fnQueue = Array initQueueSize
 		fnQueueLen = 0
 
-		return
+		###*
+		 * Schedule a flush task on the next tick.
+		 * @private
+		 * @param {Function} fn The flush task.
+		###
+		scheduleFlush =
+			if typeof process == $object and process.nextTick
+				->
+					process.nextTick flush
+					return
 
-	###*
-	 * Schedule a function. The function will run on the next tick.
-	 * @private
-	 * @param  {Function} fn
-	 * @param {Yaku} p
-	 * @param {Any} v
-	###
-	scheduleFn = (fn, p, v) ->
-		fnQueue[fnQueueLen++] = fn
-		fnQueue[fnQueueLen++] = p
-		fnQueue[fnQueueLen++] = v
+			else if typeof setImmediate == $function
+				->
+					setImmediate flush
+					return
 
-		scheduleFlush() if fnQueueLen == 3
+			else if typeof MutationObserver == $function
+				content = 1
+				node = document.createTextNode ''
+				observer = new MutationObserver flush
+				observer.observe node, characterData: true
+				->
+					node.data = (content = -content)
+					return
 
-		return
+			else if typeof document == $object and document.createEvent
+				addEventListener '_yakuTick', flush
+				->
+					evt = document.createEvent 'CustomEvent'
+					evt.initCustomEvent '_yakuTick', false, false
+					dispatchEvent evt
+					return
 
-	# Schedule a flush task on the next tick.
-	scheduleFlush = do ->
-		if typeof process == $object and process.nextTick
-			->
-				process.nextTick flush
-				return
+			else
+				->
+					setTimeout flush
+					return
 
-		else if typeof setImmediate == $function
-			->
-				setImmediate flush
-				return
+		###*
+		 * Run all queued functions.
+		 * @private
+		###
+		flush = ->
+			i = 0
+			while i < fnQueueLen
+				pIndex = i++
+				vIndex = i++
 
-		else if typeof MutationObserver == $function
-			content = 1
-			node = document.createTextNode ''
-			observer = new MutationObserver flush
-			observer.observe node, characterData: true
-			->
-				node.data = (content = -content)
-				return
+				p = fnQueue[pIndex]
+				v = fnQueue[vIndex]
 
-		else if typeof document == $object and document.createEvent
-			addEventListener '_yakuTick', flush
-			->
-				evt = document.createEvent 'CustomEvent'
-				evt.initCustomEvent '_yakuTick', false, false
-				dispatchEvent evt
-				return
+				release fnQueue, pIndex
+				release fnQueue, vIndex
 
-		else
-			->
-				setTimeout flush
-				return
+				fn p, v
+
+			fnQueueLen = 0
+
+			return
+
+		(p, v) ->
+			fnQueue[fnQueueLen++] = p
+			fnQueue[fnQueueLen++] = v
+
+			scheduleFlush() if fnQueueLen == 2
+
+			return
 
 	###*
 	 * Resolve or reject primise with value x. The x can also be a thenable.
@@ -321,7 +322,7 @@ do -> class Yaku
 
 			# To prevent the resolving circular we have to
 			# make this action on the next tick.
-			scheduleFn rejectPromise, p, r
+			rejectPromise p, r
 
 		if err == $tryErr and x
 			settlePromise p, $rejected, err.e
@@ -354,10 +355,11 @@ do -> class Yaku
 
 	###*
 	 * Resolve the value returned by onFulfilled or onRejected.
+	 * @private
 	 * @param  {Yaku} self
 	 * @param  {Integer} offset
 	###
-	settleX = (self, offset) ->
+	settleX = genScheduler 1000, (self, offset) ->
 		pIndex = offset + 2
 		p = self[pIndex]
 		release self, pIndex
@@ -388,7 +390,7 @@ do -> class Yaku
 		# Trick: Reuse the value of state as the handler selector.
 		# The "i + state" shows the math nature of promise.
 		if self[offset + self._state]
-			scheduleFn settleX, self, offset
+			settleX self, offset
 		else
 			pIndex = offset + 2
 			settlePromise self[pIndex], self._state, self._value
@@ -398,10 +400,11 @@ do -> class Yaku
 
 	###*
 	 * Reject a promise with passed reason.
+	 * @private
 	 * @param  {Yaku} p
 	 * @param  {Any} r
 	###
-	rejectPromise = (p, r) ->
+	rejectPromise = genScheduler 100, (p, r) ->
 		settlePromise p, $rejected, r
 		return
 
