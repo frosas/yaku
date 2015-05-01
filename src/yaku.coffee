@@ -12,7 +12,7 @@ do -> class Yaku
 	###
 	constructor: (executor) ->
 		return if executor == $noop
-		executor genResolver(@, $resolved), genResolver(@, $rejected)
+		executor genSettler(@, $resolved), genSettler(@, $rejected)
 
 	###*
 	 * Appends fulfillment and rejection handlers to the promise,
@@ -77,7 +77,7 @@ do -> class Yaku
 	@race: (iterable) ->
 		new Yaku (resolve, reject) ->
 			for x in iterable
-				resolveValue x, resolve, reject
+				settleValue x, resolve, reject
 			return
 
 	###*
@@ -98,7 +98,7 @@ do -> class Yaku
 			countDown = iterable.length
 
 			iter = (i) ->
-				resolveValue x, (v) ->
+				settleValue x, (v) ->
 					res[i] = v
 					if --countDown == 0
 						resolve res
@@ -127,7 +127,7 @@ do -> class Yaku
 	###*
 	 * These are some static symbolys.
 	 * The state value is designed to be 0, 1, 2. Not by chance.
-	 * See the genResolver part's selector.
+	 * See the genSettler part's selector.
 	 * @private
 	###
 	$resolved = 0
@@ -286,16 +286,16 @@ do -> class Yaku
 	 * @param {Yaku} p
 	 * @param {Any | Thenable} x A normal value or a thenable.
 	###
-	resolveValue = (p, x) ->
+	settleValue = (p, x) ->
 		type = typeof x
 		if x != null and (type == $function or type == $object)
-			xthen = genTryCatcher(getXthen) x
+			xthen = genTryCatcher(getThen) x
 			if xthen == $tryErr
 				settlePromise p, $rejected, xthen.e
 				return
 
 			if typeof xthen == $function
-				resolveXthen p, x, xthen
+				settleXthen p, x, xthen
 			else
 				settlePromise p, $resolved, x
 		else
@@ -310,11 +310,11 @@ do -> class Yaku
 	 * @param  {Thenable} x
 	 * @param  {Function} xthen
 	###
-	resolveXthen = (p, x, xthen) ->
+	settleXthen = (p, x, xthen) ->
 		err = genTryCatcher(xthen).call x, (y) ->
 			return if not x
 			x = null
-			resolveValue p, y
+			settleValue p, y
 		, (r) ->
 			return if not x
 			x = null
@@ -335,7 +335,7 @@ do -> class Yaku
 	 * @param  {Thenable} x
 	 * @return {Function}
 	###
-	getXthen = (x) -> x.then
+	getThen = (x) -> x.then
 
 	###*
 	 * Try to get return value of `onFulfilled` or `onRejected`.
@@ -344,9 +344,12 @@ do -> class Yaku
 	 * @param  {Integer} hIndex
 	 * @return {Any}
 	###
-	getX = (self, hIndex) ->
-		handler = self[hIndex]
-		release self, hIndex
+	callHanler = (self, offset) ->
+		handler = self[offset + self._state]
+
+		release self, offset
+		release self, offset + 1
+
 		handler self._value
 
 	###*
@@ -354,12 +357,12 @@ do -> class Yaku
 	 * @param  {Yaku} self
 	 * @param  {Integer} offset
 	###
-	resolveX = (self, offset) ->
+	settleX = (self, offset) ->
 		pIndex = offset + 2
 		p = self[pIndex]
 		release self, pIndex
 
-		x = genTryCatcher(getX) self, offset + self._state
+		x = genTryCatcher(callHanler) self, offset
 		if x == $tryErr
 			settlePromise p, $rejected, x.e
 			return
@@ -371,7 +374,7 @@ do -> class Yaku
 				rejector new TypeError $circularError
 			return
 
-		resolveValue p, x
+		settleValue p, x
 
 		return
 
@@ -385,7 +388,7 @@ do -> class Yaku
 		# Trick: Reuse the value of state as the handler selector.
 		# The "i + state" shows the math nature of promise.
 		if self[offset + self._state]
-			scheduleFn resolveX, self, offset
+			scheduleFn settleX, self, offset
 		else
 			pIndex = offset + 2
 			settlePromise self[pIndex], self._state, self._value
@@ -431,7 +434,7 @@ do -> class Yaku
 	 * @param  {Integer} state The value is one of `$pending`, `$resolved` or `$rejected`.
 	 * @return {Function} `(value) -> undefined` A resolve or reject function.
 	###
-	genResolver = (self, state) -> (value) ->
+	genSettler = (self, state) -> (value) ->
 		return if self._state != $pending
 
 		settlePromise self, state, value
