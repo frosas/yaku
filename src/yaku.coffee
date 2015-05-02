@@ -222,14 +222,12 @@ do -> class Yaku
 	 * @param {Yaku} p2
 	###
 	scheduleHandler = genScheduler 1000, (p1, p2) ->
-		handlerKey = if p1._state then '_onFulfilled' else '_onRejected'
-		handler = p2[handlerKey]
+		handler = if p1._state then p2._onFulfilled else p2._onRejected
 
 		if handler == undefined
 			settlePromise p2, p1._state, p1._value
 			return
 
-		release p2, handlerKey
 		x = genTryCatcher(callHanler) handler, p1._value
 		if x == $tryErr
 			settlePromise p2, $rejected, x.e
