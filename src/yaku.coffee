@@ -204,9 +204,9 @@ do -> class Yaku
 	###
 	addHandler = (p1, p2, onFulfilled, onRejected) ->
 		if typeof onFulfilled == $function
-			p2._onParentFulfilled = onFulfilled
+			p2._onFulfilled = onFulfilled
 		if typeof onRejected == $function
-			p2._onParentRejected = onRejected
+			p2._onRejected = onRejected
 
 		if p1._state == $pending
 			p1[p1._pCount++] = p2
@@ -215,9 +215,6 @@ do -> class Yaku
 
 		p2
 
-	getHandlerByState = (state, p2) ->
-		if state then p2._onParentFulfilled else p2._onParentRejected
-
 	###*
 	 * Resolve the value returned by onFulfilled or onRejected.
 	 * @private
@@ -225,12 +222,14 @@ do -> class Yaku
 	 * @param {Yaku} p2
 	###
 	scheduleHandler = genScheduler 1000, (p1, p2) ->
-		handler = getHandlerByState p1._state, p2
+		handlerKey = if p1._state then '_onFulfilled' else '_onRejected'
+		handler = p2[handlerKey]
 
 		if handler == undefined
 			settlePromise p2, p1._state, p1._value
 			return
 
+		release p2, handlerKey
 		x = genTryCatcher(callHanler) handler, p1._value
 		if x == $tryErr
 			settlePromise p2, $rejected, x.e
