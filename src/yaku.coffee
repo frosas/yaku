@@ -203,6 +203,29 @@ do -> class Yaku
 		fnQueueLen = 0
 
 		###*
+		 * Run all queued functions.
+		 * @private
+		###
+		flush = ->
+			i = 0
+			while i < fnQueueLen
+				pIndex = i++
+				vIndex = i++
+
+				p = fnQueue[pIndex]
+				v = fnQueue[vIndex]
+
+				release fnQueue, pIndex
+				release fnQueue, vIndex
+
+				fn p, v
+
+			fnQueueLen = 0
+			fnQueue.length = initQueueSize
+
+			return
+
+		###*
 		 * Schedule a flush task on the next tick.
 		 * @private
 		 * @param {Function} fn The flush task.
@@ -239,29 +262,6 @@ do -> class Yaku
 				->
 					setTimeout flush
 					return
-
-		###*
-		 * Run all queued functions.
-		 * @private
-		###
-		flush = ->
-			i = 0
-			while i < fnQueueLen
-				pIndex = i++
-				vIndex = i++
-
-				p = fnQueue[pIndex]
-				v = fnQueue[vIndex]
-
-				release fnQueue, pIndex
-				release fnQueue, vIndex
-
-				fn p, v
-
-			fnQueueLen = 0
-			fnQueue.length = initQueueSize
-
-			return
 
 		(p, v) ->
 			fnQueue[fnQueueLen++] = p
