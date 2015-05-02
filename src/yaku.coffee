@@ -228,7 +228,13 @@ do -> class Yaku
 	 * @param {Yaku} p2
 	###
 	scheduleHandler = genScheduler 1000, (p1, p2) ->
-		x = genTryCatcher(callHanler) p1, p2
+		handler = getHandlerByState p1._state, p2
+
+		if handler == undefined
+			settlePromise p2, p1._state, p1._value
+			return
+
+		x = genTryCatcher(callHanler) handler, p1._value
 		if x == $tryErr
 			settlePromise p2, $rejected, x.e
 			return
@@ -244,18 +250,8 @@ do -> class Yaku
 	 * @param {Yaku} p2
 	 * @return {Any}
 	###
-	callHanler = (p1, p2) ->
-		getHandlerByState(p1._state, p2) p1._value
-
-	settleAllChildPromises = (p) ->
-		i = 0
-		len = p._pCount
-
-		while i < len
-			scheduleHandler p, p[i]
-			release p, i++
-
-		return
+	callHanler = (handler, value) ->
+		handler value
 
 	###*
 	 * Resolve or reject a promise.
@@ -267,7 +263,12 @@ do -> class Yaku
 		p._state = state
 		p._value = value
 
-		settleAllChildPromises p
+		i = 0
+		len = p._pCount
+
+		while i < len
+			scheduleHandler p, p[i]
+			release p, i++
 
 		return
 
