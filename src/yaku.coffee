@@ -190,10 +190,8 @@ do -> class Yaku
 	 * @return {Function} `(value) -> undefined` A resolve or reject function.
 	###
 	genSettler = (self, state) -> (value) ->
-		return if self._state != $pending
-
-		settlePromise self, state, value
-
+		if self._state == $pending
+			settlePromise self, state, value
 		return
 
 	###*
