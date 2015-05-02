@@ -211,10 +211,7 @@ do -> class Yaku
 		if p1._state == $pending
 			p1[p1._pCount++] = p2
 		else
-			if getHandlerByState(p1._state, p2) == undefined
-				settlePromise p2, p1._state, p1._value
-			else
-				scheduleHandler p1, p2
+			scheduleHandler p1, p2
 
 		p2
 
