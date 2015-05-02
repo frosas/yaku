@@ -26,6 +26,12 @@ do -> class Yaku
 		addHandler @, (new Yaku $noop), onFulfilled, onRejected
 
 
+	@resolve: (value) ->
+		settleWithX (new Yaku $noop), value
+
+	@reject: (reason) ->
+		settlePromise (new Yaku $noop), $rejected, reason
+
 # ********************** Private **********************
 
 	###
@@ -264,7 +270,7 @@ do -> class Yaku
 			scheduleHandler p, p[i]
 			release p, i++
 
-		return
+		p
 
 	###*
 	 * Resolve or reject primise with value x. The x can also be a thenable.
@@ -292,7 +298,7 @@ do -> class Yaku
 		else
 			settlePromise p, $resolved, x
 
-		return
+		p
 
 	###*
 	 * Try to get a promise's then method.
@@ -314,12 +320,13 @@ do -> class Yaku
 			return if not x
 			x = null
 			settleWithX p, y
+			return
 		, (r) ->
 			return if not x
 			x = null
 
 			settlePromise p, $rejected, r
-
+			return
 		if err == $tryErr and x
 			settlePromise p, $rejected, err.e
 			x = null
