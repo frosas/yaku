@@ -25,195 +25,13 @@ do -> class Yaku
 	then: (onFulfilled, onRejected) ->
 		addHandler @, (new Yaku $noop), onFulfilled, onRejected
 
+
 # ********************** Private **********************
 
 	###
 	 * All static variable name will begin with `$`. Such as `$rejected`.
 	 * @private
 	###
-
-	# ************************** Private Constant **************************
-
-	###*
-	 * These are some static symbolys.
-	 * @private
-	###
-	$rejected = 0
-	$resolved = 1
-	$pending = 2
-
-	# These are some symbols. They won't be used to store data.
-	$circularError = 'circular promise resolution chain'
-
-	# Default state
-	_state: $pending
-
-	###*
-	 * The number of current promises that attach to this Yaku instance.
-	 * @private
-	###
-	_pCount: 0
-
-	###*
-	 * `promise == parentPromise[promise._pIndex]`, it's true.
-	 * @private
-	###
-	_pIndex: 0
-
-	###*
-	 * `then(_onParentFulfilled, _onParentRejected)` of parent promise.
-	 * @private
-	###
-	_onParentFulfilled: undefined
-	_onParentRejected: undefined
-
-	# *************************** Promise Hepers ****************************
-
-	###*
-	 * Link the promise1 to the promise2.
-	 * @private
-	 * @param {Yaku} p1
-	 * @param {Yaku} p2
-	 * @param {Function} onFulfilled
-	 * @param {Function} onRejected
-	###
-	addHandler = (p1, p2, onFulfilled, onRejected) ->
-		if typeof onFulfilled == $function
-			p2._onParentFulfilled = onFulfilled
-		if typeof onRejected == $function
-			p2._onParentRejected = onRejected
-
-		if p1._state == $pending
-			p1[p1._hCount] = p2
-			p2._pIndex = p1._hCount++
-		else
-			if getHandlerByState(p1._state, p2) == undefined
-				scheduleHandler p1, p2
-			else
-				settlePromise p2, p1._state, p1._value
-
-		p2
-
-	getHandlerByState = (state, p2) ->
-		if state then p2._onParentFulfilled else p2._onParentRejected
-
-	###*
-	 * Resolve the value returned by onFulfilled or onRejected.
-	 * @private
-	 * @param {Yaku} p1
-	 * @param {Yaku} p2
-	###
-	scheduleHandler = genScheduler 1000, (p1, p2) ->
-		release p1, p2._pIndex
-
-		x = genTryCatcher(callHanler) p1, p2
-		if x == $tryErr
-			settlePromise p2, $rejected, x.e
-			return
-
-		# Prevent circular chain.
-		if x == p2 and x
-			rejector = p2._onParentRejected
-			if rejector
-				rejector new TypeError $circularError
-			return
-
-		settleValue p2, x
-
-		return
-
-	###*
-	 * Try to get return value of `onFulfilled` or `onRejected`.
-	 * @private
-	 * @param {Yaku} p1
-	 * @param {Yaku} p2
-	 * @return {Any}
-	###
-	callHanler = (p1, p2) ->
-		getHandlerByState(p1._state, p2) p1._value
-
-	settleAllHandlers = (self) ->
-		offset = 0
-		len = self._hCount
-
-		while offset < len
-			settleHandler self, offset
-
-			offset += $groupNum
-
-		return
-
-	###*
-	 * Resolve or reject a promise.
-	 * @param  {Yaku} self
-	 * @param  {Integer} state
-	 * @param  {Any} value
-	 * @return {Yaku} It will simply return the `self`.
-	###
-	settlePromise = (self, state, value) ->
-		self._state = state
-		self._value = value
-
-		return
-
-	###*
-	 * Resolve or reject primise with value x. The x can also be a thenable.
-	 * @private
-	 * @param {Yaku} p
-	 * @param {Any | Thenable} x A normal value or a thenable.
-	###
-	settleValue = (p, x) ->
-		if x instanceof Yaku
-			addHandler x, p
-			return
-
-		type = typeof x
-		if x != null and (type == $function or type == $object)
-			xthen = genTryCatcher(getThen) x
-			if xthen == $tryErr
-				settlePromise p, $rejected, xthen.e
-				return
-
-			if typeof xthen == $function
-				settleXthen p, x, xthen
-			else
-				settlePromise p, $resolved, x
-		else
-			settlePromise p, $resolved, x
-
-		return
-
-	###*
-	 * Resolve then with its promise.
-	 * @private
-	 * @param  {Yaku} p
-	 * @param  {Thenable} x
-	 * @param  {Function} xthen
-	###
-	settleXthen = (p, x, xthen) ->
-		err = genTryCatcher(xthen).call x, (y) ->
-			return if not x
-			x = null
-			settleValue p, y
-		, (r) ->
-			return if not x
-			x = null
-
-			settlePromise p, $rejected, r
-
-		if err == $tryErr and x
-			settlePromise p, $rejected, err.e
-			x = null
-
-		return
-
-	###*
-	 * Try to get a promise's then method.
-	 * @private
-	 * @param  {Thenable} x
-	 * @return {Function}
-	###
-	getThen = (x) -> x.then
 
 	# ******************************* Utils ********************************
 
@@ -337,6 +155,32 @@ do -> class Yaku
 
 			return
 
+
+	# ************************** Promise Constant **************************
+
+	###*
+	 * These are some static symbolys.
+	 * @private
+	###
+	$rejected = 0
+	$resolved = 1
+	$pending = 2
+
+	# These are some symbols. They won't be used to store data.
+	$circularError = 'circular promise resolution chain'
+
+	# Default state
+	_state: $pending
+
+	###*
+	 * The number of current promises that attach to this Yaku instance.
+	 * @private
+	###
+	_pCount: 0
+
+
+	# *************************** Promise Hepers ****************************
+
 	###*
 	 * It will produce a settlePromise function to user.
 	 * Such as the resolve and reject in this `new Yaku (resolve, reject) ->`.
@@ -349,6 +193,143 @@ do -> class Yaku
 		return if self._state != $pending
 
 		settlePromise self, state, value
+
+		return
+
+	###*
+	 * Link the promise1 to the promise2.
+	 * @private
+	 * @param {Yaku} p1
+	 * @param {Yaku} p2
+	 * @param {Function} onFulfilled
+	 * @param {Function} onRejected
+	###
+	addHandler = (p1, p2, onFulfilled, onRejected) ->
+		if typeof onFulfilled == $function
+			p2._onParentFulfilled = onFulfilled
+		if typeof onRejected == $function
+			p2._onParentRejected = onRejected
+
+		if p1._state == $pending
+			p1[p1._pCount] = p2
+			p2._pIndex = p1._pCount++
+		else
+			if getHandlerByState(p1._state, p2) == undefined
+				settlePromise p2, p1._state, p1._value
+			else
+				scheduleHandler p1, p2
+
+		p2
+
+	getHandlerByState = (state, p2) ->
+		if state then p2._onParentFulfilled else p2._onParentRejected
+
+	###*
+	 * Resolve the value returned by onFulfilled or onRejected.
+	 * @private
+	 * @param {Yaku} p1
+	 * @param {Yaku} p2
+	###
+	scheduleHandler = genScheduler 1000, (p1, p2) ->
+		x = genTryCatcher(callHanler) p1, p2
+		if x == $tryErr
+			settlePromise p2, $rejected, x.e
+			return
+
+		settleWithX p2, x
+
+		return
+
+	###*
+	 * Try to get return value of `onFulfilled` or `onRejected`.
+	 * @private
+	 * @param {Yaku} p1
+	 * @param {Yaku} p2
+	 * @return {Any}
+	###
+	callHanler = (p1, p2) ->
+		getHandlerByState(p1._state, p2) p1._value
+
+	settleAllChildPromises = (p) ->
+		i = 0
+		len = p._pCount
+
+		while i < len
+			scheduleHandler p, p[i++]
+
+		return
+
+	###*
+	 * Resolve or reject a promise.
+	 * @param  {Yaku} p
+	 * @param  {Integer} state
+	 * @param  {Any} value
+	###
+	settlePromise = (p, state, value) ->
+		p._state = state
+		p._value = value
+
+		settleAllChildPromises p
+
+		return
+
+	###*
+	 * Resolve or reject primise with value x. The x can also be a thenable.
+	 * @private
+	 * @param {Yaku} p
+	 * @param {Any | Thenable} x A normal value or a thenable.
+	###
+	settleWithX = (p, x) ->
+		# Prevent circular chain.
+		if x == p and x
+			settlePromise p, $rejected, new TypeError $circularError
+			return
+
+		type = typeof x
+		if x != null and (type == $function or type == $object)
+			xthen = genTryCatcher(getThen) x
+			if xthen == $tryErr
+				settlePromise p, $rejected, xthen.e
+				return
+
+			if typeof xthen == $function
+				settleXthen p, x, xthen
+			else
+				settlePromise p, $resolved, x
+		else
+			settlePromise p, $resolved, x
+
+		return
+
+	###*
+	 * Try to get a promise's then method.
+	 * @private
+	 * @param  {Thenable} x
+	 * @return {Function}
+	###
+	getThen = (x) -> x.then
+
+	###*
+	 * Resolve then with its promise.
+	 * @private
+	 * @param  {Yaku} p
+	 * @param  {Thenable} x
+	 * @param  {Function} xthen
+	###
+	settleXthen = (p, x, xthen) ->
+		err = genTryCatcher(xthen).call x, (y) ->
+			return if not x
+			x = null
+			settleWithX p, y
+		, (r) ->
+			return if not x
+			x = null
+
+			settlePromise p, $rejected, r
+
+		if err == $tryErr and x
+			settlePromise p, $rejected, err.e
+			x = null
 
 		return
 
