@@ -209,8 +209,7 @@ do -> class Yaku
 			p2._onParentRejected = onRejected
 
 		if p1._state == $pending
-			p1[p1._pCount] = p2
-			p2._pIndex = p1._pCount++
+			p1[p1._pCount--] = p2
 		else
 			if getHandlerByState(p1._state, p2) == undefined
 				settlePromise p2, p1._state, p1._value
@@ -249,11 +248,10 @@ do -> class Yaku
 		getHandlerByState(p1._state, p2) p1._value
 
 	settleAllChildPromises = (p) ->
-		i = 0
-		len = p._pCount
+		i = p._pCount
 
-		while i < len
-			scheduleHandler p, p[i++]
+		while i++
+			scheduleHandler p, p[i]
 
 		return
 
