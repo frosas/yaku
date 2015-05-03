@@ -23,14 +23,51 @@ do -> class Yaku
 	 * the current Promise.
 	###
 	then: (onFulfilled, onRejected) ->
-		addHandler @, (new Yaku $noop), onFulfilled, onRejected
+		addHandler @, newEmptyYaku(), onFulfilled, onRejected
 
+	catch: (onRejected) ->
+		@then undefined, onRejected
 
 	@resolve: (value) ->
-		settleWithX (new Yaku $noop), value
+		return value if value instanceof Yaku
+		settleWithX newEmptyYaku(), value
 
 	@reject: (reason) ->
-		settlePromise (new Yaku $noop), $rejected, reason
+		settlePromise newEmptyYaku(), $rejected, reason
+
+	@race: (iterable) ->
+		p = newEmptyYaku()
+		for x in iterable
+			settleWithX p, x
+			break if p._state != $pending
+		p
+
+	@all: (iterable) ->
+		p1 = newEmptyYaku()
+		convertor = Yaku.resolve
+
+		res = []
+		countDown = iterable.length
+
+		onFulfilled = (value) ->
+			res[i] = value
+			if --countDown == 0
+				settlePromise p1, $resolved, res
+			return
+
+		onRejected = (reason) ->
+			settlePromise p1, $rejected, reason
+			return
+
+		iter = (x) ->
+			convertor(x).then onFulfilled, onRejected
+			return
+
+		for x, i in iterable
+			iter x
+
+		p1
+
 
 # ********************** Private **********************
 
@@ -187,6 +224,8 @@ do -> class Yaku
 
 	# *************************** Promise Hepers ****************************
 
+	newEmptyYaku = -> new Yaku $noop
+
 	###*
 	 * It will produce a settlePromise function to user.
 	 * Such as the resolve and reject in this `new Yaku (resolve, reject) ->`.
@@ -196,9 +235,7 @@ do -> class Yaku
 	 * @return {Function} `(value) -> undefined` A resolve or reject function.
 	###
 	genSettler = (self, state) -> (value) ->
-		if self._state == $pending
-			settlePromise self, state, value
-		return
+		settlePromise self, state, value
 
 	###*
 	 * Link the promise1 to the promise2.
@@ -260,6 +297,8 @@ do -> class Yaku
 	 * @param  {Any} value
 	###
 	settlePromise = (p, state, value) ->
+		return if p._state != $pending
+
 		p._state = state
 		p._value = value
 
